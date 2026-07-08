@@ -1,32 +1,21 @@
 {
-    "php": {
-        "version": "8.3",
-        "extensions": [
-            "pdo_mysql",
-            "mbstring",
-            "tokenizer",
-            "xml",
-            "ctype",
-            "json",
-            "bcmath",
-            "curl",
-            "gd",
-            "fileinfo",
-            "openssl"
-        ]
-    },
-    "build": {
-        "commands": {
-            "install": [
-                "composer install --no-interaction --optimize-autoloader --no-dev --ignore-platform-reqs"
-            ],
-            "postInstall": [
-                "php artisan key:generate",
-                "php artisan storage:link"
-            ]
-        }
-    },
-    "deploy": {
-        "startCommand": "php artisan serve --host=0.0.0.0 --port=${PORT:-8000}"
+  "php": {
+    "version": "8.3",
+    "extensions": ["pdo_mysql", "mbstring", "tokenizer", "xml", "ctype", "json", "bcmath", "curl", "gd", "fileinfo", "openssl"]
+  },
+  "build": {
+    "commands": {
+      "install": "composer install --no-interaction --optimize-autoloader --ignore-platform-reqs",
+      "postInstall": [
+        "php artisan key:generate",
+        "php artisan storage:link",
+        "php artisan config:cache",
+        "php artisan route:cache",
+        "php artisan view:cache"
+      ]
     }
+  },
+  "deploy": {
+    "startCommand": "php artisan serve --host=0.0.0.0 --port=${PORT:-8000}"
+  }
 }

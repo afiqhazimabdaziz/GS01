@@ -41,24 +41,35 @@ class AnalyzeImage implements ShouldQueue
         try {
             $fileName = $this->image->file_name;
 
-            // Resolve file paths across storage/public locations
-            if (file_exists(public_path('storage/' . $fileName))) {
-                $filePath = public_path('storage/' . $fileName);
-            } elseif (file_exists(public_path($fileName))) {
-                $filePath = public_path($fileName);
-            } elseif (file_exists(storage_path('app/public/' . $fileName))) {
-                $filePath = storage_path('app/public/' . $fileName);
-            } else {
-                Log::error("File absolutely not found for analysis: " . $fileName);
-                return;
+            // 🌟 NEW LIVE URL STREAMING MECHANISM
+            // Grabs the image over the network from your live production storage drive
+            $liveUrl = 'https://gs01-production.up.railway.app/storage/' . $fileName;
+
+            try {
+                $fileContents = @file_get_contents($liveUrl);
+                if ($fileContents === false) {
+                    throw new \Exception("Could not stream file from production storage URL endpoint.");
+                }
+                $imageData = base64_encode($fileContents);
+            } catch (\Exception $urlException) {
+                Log::warning("URL stream failed, trying emergency local volume paths: " . $urlException->getMessage());
+                
+                // Emergency local disk lookups if needed
+                if (file_exists(public_path('storage/' . $fileName))) {
+                    $filePath = public_path('storage/' . $fileName);
+                } elseif (file_exists(public_path($fileName))) {
+                    $filePath = public_path($fileName);
+                } elseif (file_exists(storage_path('app/public/' . $fileName))) {
+                    $filePath = storage_path('app/public/' . $fileName);
+                } else {
+                    Log::error("File absolutely not found anywhere for analysis: " . $fileName);
+                    return;
+                }
+                $imageData = base64_encode(file_get_contents($filePath));
             }
 
-            // Determine image format and read file contents as binary stream
+            // Determine image format 
             $lowercaseFormat = strtolower($this->image->image_format);
-            $mimeType = ($lowercaseFormat === 'png') ? 'image/png' : 'image/jpeg';
-            $imageData = base64_encode(file_get_contents($filePath));
-
-            // Prompt rules framing your multimedia system criteria scope
             $prompt = "You are an automated profile picture auditing system for a university database. " .
                       "Analyze this image and return a strict JSON object with these EXACT keys: " .
                       "clothing_type (must be exactly 'Blazer', 'Kemeja', 'Baju Kurung', or 'Casual'), " .
@@ -69,15 +80,13 @@ class AnalyzeImage implements ShouldQueue
                       "body_composition ('Half Body' or 'Full Body'). " .
                       "Return ONLY raw valid JSON text. No markdown backticks, no conversational fillers.";
 
-            // 🌟 CALL GOOGLE GEMINI WITH VISION BLOB PAYLOAD
+            // CALL GOOGLE GEMINI WITH VISION BLOB PAYLOAD
             $client = Gemini::client(env('GEMINI_API_KEY'));
 
-            // Map standard format strings to strict Gemini SDK Enums
             $geminiMimeType = ($lowercaseFormat === 'png') 
                 ? \Gemini\Enums\MimeType::IMAGE_PNG 
                 : \Gemini\Enums\MimeType::IMAGE_JPEG;
 
-            // Using gemini-1.5-flash with clean positional arguments
             $response = $client->generativeModel('gemini-2.5-flash')->generateContent([
                 $prompt,
                 new \Gemini\Data\Blob(
@@ -116,7 +125,7 @@ class AnalyzeImage implements ShouldQueue
             // Updates your phpMyAdmin visual features table
             VisualFeature::where('image_ID', $this->image->image_ID)->update($validatedData);
 
-            // 🌟 ADD THIS NEW LINE RIGHT HERE: Update the main images table columns directly!
+            // Update the main images table columns directly!
             $this->image->update($validatedData);
 
             // Calculate formal matching vectors for Text-Based Retrieval (TBR) tags
@@ -146,10 +155,10 @@ class AnalyzeImage implements ShouldQueue
             ];
             VisualFeature::where('image_ID', $this->image->image_ID)->update($fallbackData);
             
-            // 🌟 ADD THIS LINE HERE TOO:
+            // Update main images table on crash too
             $this->image->update($fallbackData);
 
-            throw $e; // Triggers backoff retries handling high demand safely
+            throw $e; 
         }
     }
 }

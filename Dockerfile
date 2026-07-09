@@ -73,10 +73,9 @@ RUN sed -ri \
     /etc/apache2/apache2.conf \
     /etc/apache2/conf-available/*.conf
 
-# Enable Apache modules
-RUN a2dismod mpm_event || true \
-    && a2enmod mpm_prefork \
-    && a2enmod rewrite
+# Fix Apache MPM conflict
+RUN a2dismod mpm_event mpm_worker mpm_prefork || true \
+    && a2enmod mpm_prefork rewrite
 
 
 # Create startup script

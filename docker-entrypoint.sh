@@ -19,7 +19,7 @@ fi
 
 
 # Create Laravel storage link
-php artisan storage:link
+php artisan storage:link || true
 
 
 php artisan config:cache

@@ -48,6 +48,8 @@ class UploadController extends Controller
             // Save file to storage/app/public/uploads
             $path = $file->store('uploads', 'public');
 
+            dd($path);
+
             // Explicitly extract the authenticated user's custom PK identifier
             $userId = Auth::user() ? Auth::user()->user_ID : 1; 
 

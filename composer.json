@@ -27,7 +27,7 @@
         "psr-4": {
             "App\\": "app/",
             "Database\\Factories\\": "database/factories/",
-            "Database\\Seeders\\": "database/seeders/"
+            "Database\\Seeders\\": "database/search/"
         }
     },
     "autoload-dev": {
@@ -83,7 +83,11 @@
         "allow-plugins": {
             "pestphp/pest-plugin": true,
             "php-http/discovery": true
-        }
+        },
+        "platform": {
+            "php": "8.3.0"
+        },
+        "platform-check": false
     },
     "minimum-stability": "stable",
     "prefer-stable": true

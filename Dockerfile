@@ -1,122 +1,127 @@
 # ==========================
-# Stage 1: Build frontend
+# Stage 1: Build Laravel
 # ==========================
 
-FROM node:20 AS frontend
-
-WORKDIR /app
-
-COPY package*.json ./
-
-RUN npm install
-
-COPY . .
-
-RUN npm run build
+FROM php:8.3-fpm AS builder
 
 
-# ==========================
-# Stage 2: Laravel + Apache
-# ==========================
-
-FROM php:8.3-apache
-
-WORKDIR /var/www/html
-
-
-# Install dependencies
-
-RUN apt-get update && apt-get install -y \
-    git \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
-    libpng-dev \
-    libonig-dev \
-    libxml2-dev \
-    zip \
     unzip \
-    && docker-php-ext-install \
+    git \
+    libpq-dev \
+    libonig-dev \
+    libssl-dev \
+    libxml2-dev \
+    libcurl4-openssl-dev \
+    libicu-dev \
+    libzip-dev \
+    nodejs \
+    npm \
+    && docker-php-ext-install -j$(nproc) \
         pdo_mysql \
-        mbstring \
-        exif \
-        pcntl \
+        pdo_pgsql \
+        pgsql \
+        intl \
+        zip \
         bcmath \
-        gd \
+        soap \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 
-# Install composer
+WORKDIR /var/www
+
+
+COPY . .
+
+
+# Composer
 
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 
-# Copy Laravel
-
-COPY . .
-
-
-# Copy Vite build
-
-COPY --from=frontend /app/public/build ./public/build
-
-
-# Install Laravel packages
-
 RUN composer install \
-    --no-interaction \
     --no-dev \
     --optimize-autoloader \
-    --ignore-platform-reqs
+    --no-interaction \
+    --prefer-dist
+
+
+# Build frontend
+
+RUN npm install \
+    && npm run build
+
 
 
 # ==========================
-# Apache configuration
+# Stage 2: Production PHP-FPM
 # ==========================
 
-
-ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
-
-
-# Change only VirtualHost root
-
-RUN sed -ri \
-    -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' \
-    /etc/apache2/sites-available/*.conf
+FROM php:8.3-fpm AS production
 
 
-# Remove ALL MPM modules first
-
-RUN rm -f \
-    /etc/apache2/mods-enabled/mpm_*.load \
-    /etc/apache2/mods-enabled/mpm_*.conf
-
-
-# Enable only prefork
-
-RUN a2enmod mpm_prefork \
-    && a2enmod rewrite
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq-dev \
+    libicu-dev \
+    libzip-dev \
+    libfcgi-bin \
+    procps \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 
-# Debug MPM during build
 
-RUN echo "Enabled Apache MPM:" \
-    && ls -la /etc/apache2/mods-enabled | grep mpm
+# PHP production config
 
-
-# Entry point
-
-COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 
 
-# Permissions
 
-RUN chown -R www-data:www-data /var/www/html \
-    && chmod -R 755 /var/www/html \
-    && chmod -R 775 storage bootstrap/cache
+# Copy PHP extensions
 
+COPY --from=builder /usr/local/lib/php/extensions/ /usr/local/lib/php/extensions/
 
-EXPOSE 80
+COPY --from=builder /usr/local/etc/php/conf.d/ /usr/local/etc/php/conf.d/
 
 
-ENTRYPOINT ["docker-entrypoint.sh"]
+# Application
+
+COPY --from=builder /var/www /var/www
+
+
+WORKDIR /var/www
+
+
+
+# Storage
+
+RUN mkdir -p storage/framework/cache \
+    storage/framework/sessions \
+    storage/framework/views \
+    bootstrap/cache
+
+
+RUN chown -R www-data:www-data /var/www
+
+
+USER www-data
+
+
+
+COPY docker/php-fpm/entrypoint.sh /usr/local/bin/entrypoint.sh
+
+
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+
+
+EXPOSE 9000
+
+
+CMD ["php-fpm"]

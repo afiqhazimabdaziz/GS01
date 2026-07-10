@@ -4,8 +4,7 @@ nixPkgs = ["nodejs_22", "php82", "php82Packages.composer"]
 [phases.install]
 cmds = [
   "composer install --ignore-platform-reqs",
-  "npm ci --legacy-peer-deps",
-  "chmod +x start.sh"
+  "npm ci --legacy-peer-deps"
 ]
 
 [phases.build]
@@ -15,4 +14,4 @@ cmds = [
 ]
 
 [start]
-cmd = "./start.sh"
+cmd = "bash start.sh"

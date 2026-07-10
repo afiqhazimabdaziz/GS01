@@ -1,8 +1,9 @@
 [phases.setup]
-nixPkgs = ["nodejs_22", "php82", "composer", "supervisor"]
+nixPkgs = ["nodejs_22", "php82"]
 
 [phases.install]
 cmds = [
+  "curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer",
   "composer install --no-dev --optimize-autoloader",
   "npm ci --legacy-peer-deps"
 ]

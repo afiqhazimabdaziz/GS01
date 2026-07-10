@@ -135,19 +135,19 @@ class AnalyzeImage implements ShouldQueue
             Log::error("FICMS Queue Analysis Error: " . $e->getMessage());
             Log::error("Stack trace: " . $e->getTraceAsString());
 
-            // Emergency fallback state to guarantee page rendering doesn't crash during evaluation
-            $fallbackData = [
-                'clothing_type'    => 'Blazer',
-                'background_type'  => 'Plain White',
-                'background_color' => '#FFFFFF',
-                'face_position'    => 'Center',
-                'camera_posture'   => 'Facing Camera',
-                'body_composition' => 'Half Body',
-            ];
-            VisualFeature::where('image_ID', $this->image->image_ID)->update($fallbackData);
-
-            // Update main images table on crash too
-            $this->image->update($fallbackData);
+            if ($this->attempts() >= $this->tries) {
+                // Jika kehabisan had cubaan, set sebagai Failed
+                VisualFeature::where('image_ID', $this->image->image_ID)->update([
+                    'clothing_type' => 'Failed',
+                    'face_position' => 'Permanent Failure: ' . substr($e->getMessage(), 0, 50)
+                ]);
+            } else {
+                // Jika gagal biasa, kekalkan tanda 'Processing...' untuk teruskan putaran pemprosesan semula
+                VisualFeature::where('image_ID', $this->image->image_ID)->update([
+                    'clothing_type' => 'Processing...',
+                    'face_position' => 'Error triggered. Retrying process automatically...'
+                ]);
+            }
 
             throw $e;
         }

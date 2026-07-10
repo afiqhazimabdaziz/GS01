@@ -14,12 +14,12 @@ cmds = [
   "php artisan optimize"
 ]
 
+# REMOVE the deploy phase entirely, or keep it minimal
 [phases.deploy]
 cmds = [
-  "php artisan optimize:clear",
-  "php artisan view:cache",
-  "php artisan config:cache",
-  "php artisan route:cache"
+  "php artisan view:clear",
+  "php artisan config:clear",
+  "php artisan route:clear"
 ]
 
 [start]
